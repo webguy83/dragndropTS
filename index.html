@@ -10,7 +10,7 @@
   </head>
   <body>
     <template id="project-input">
-      <form>
+      <form id="user-input">
         <div class="form-control">
           <label for="title">Title</label>
           <input type="text" id="title" />
@@ -23,7 +23,7 @@
           <label for="people">People</label>
           <input type="number" id="people" step="1" min="0" max="10" />
         </div>
-        <button type="button">ADD PROJECT</button>
+        <button type="submit">ADD PROJECT</button>
       </form>
     </template>
     <template id="single-project">
@@ -32,7 +32,7 @@
     <template id="project-list">
       <section class="projects">
         <header>
-          <h2></h2>
+          <h2>Projects</h2>
         </header>
         <ul></ul>
       </section>
