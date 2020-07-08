@@ -1,10 +1,17 @@
 // Code goes here!
-const formTemplateEl = document.getElementById('project-input') as HTMLTemplateElement;
-const projectListTemplateEl = document.getElementById('project-list') as HTMLTemplateElement;
-const singleProjectTemplateEl = document.getElementById('single-project') as HTMLTemplateElement;
+// import { Required, PersonRange, validate } from './decorators/validators';
+
+const formTemplateEl = document.getElementById(
+  'project-input'
+) as HTMLTemplateElement;
+const projectListTemplateEl = document.getElementById(
+  'project-list'
+) as HTMLTemplateElement;
+const singleProjectTemplateEl = document.getElementById(
+  'single-project'
+) as HTMLTemplateElement;
 const formEl = formTemplateEl.firstChild as HTMLFormElement;
 const appEl = document.getElementById('app') as HTMLDivElement;
-
 
 interface IUserData {
   title: string;
@@ -19,6 +26,22 @@ function WithTemplate(tmp: HTMLTemplateElement, hookId: HTMLElement) {
   };
 }
 
+function autobind(
+  _target: any,
+  _methodName: string,
+  descriptor: PropertyDescriptor
+) {
+  const originalMethod = descriptor.value;
+  const adjDescriptor: PropertyDescriptor = {
+    configurable: true,
+    get() {
+      const boundFn = originalMethod.bind(this);
+      return boundFn;
+    },
+  };
+  return adjDescriptor;
+}
+
 @WithTemplate(formTemplateEl, appEl)
 class CustomForm {
   private customFormEl: HTMLFormElement;
@@ -27,25 +50,36 @@ class CustomForm {
   private peopleEl: HTMLInputElement;
 
   constructor() {
-   this.customFormEl = document.getElementById('user-input') as HTMLFormElement;
-   this.titleEl = document.getElementById('title') as HTMLInputElement;
-   this.descriptionEl = document.getElementById('description') as HTMLTextAreaElement;
-   this.peopleEl = document.getElementById('people') as HTMLInputElement;
-   this.attachListeners();
+    this.customFormEl = document.getElementById(
+      'user-input'
+    ) as HTMLFormElement;
+    this.titleEl = document.getElementById('title') as HTMLInputElement;
+    this.descriptionEl = document.getElementById(
+      'description'
+    ) as HTMLTextAreaElement;
+    this.peopleEl = document.getElementById('people') as HTMLInputElement;
+    this.attachListeners();
   }
 
   attachListeners() {
-    this.customFormEl.addEventListener("submit", this.onSubmit.bind(this));
+    this.customFormEl.addEventListener('submit', this.onSubmit);
   }
 
-  onSubmit(event:Event) {
+  @autobind
+  onSubmit(event: Event) {
     event.preventDefault();
+    // @Required
     const title = this.titleEl.value;
+    // @Required
     const description = this.descriptionEl.value;
+    // // @Required
+    // @PersonRange
     const people = +this.peopleEl.value;
     const project: IUserData = {
-      title, description, people
-    }
+      title,
+      description,
+      people,
+    };
     pl.add(project);
   }
 }
@@ -56,22 +90,16 @@ class ProjectList {
 
   add(project: IUserData) {
     this.projects.push(project);
-    this.refresh();
+    this.refresh(project);
   }
 
-  refresh() {
-    const projectPlacementElm = document.querySelector('.projects ul') as HTMLUListElement;
-    projectPlacementElm.appendChild(document.createElement('li'));
-      console.log(projectPlacementElm.children)
-    this.projects.forEach((_proj, _i) => {
-      
-      // projectPlacementElm.children[0].textContent = proj.title;
-      // projectPlacementElm.appendChild(projectPlacementElm.children[0]);
-      // const sp = new SingleProject();
-      // sp.addContent(proj);
-      
-    });
-    // console.log(this.projects)
+  refresh(project: IUserData) {
+    const projectPlacementElm = document.querySelector(
+      '.projects ul'
+    ) as HTMLUListElement;
+    const li = document.createElement('li');
+    li.textContent = project.title;
+    projectPlacementElm.appendChild(li);
   }
 }
 
