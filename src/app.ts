@@ -1,5 +1,73 @@
-// Code goes here!
-// import { Required, PersonRange, validate } from './decorators/validators';
+interface IVerifyObj {
+  [key: string]: {
+    [propName: string]: { [key: string]: any };
+  };
+}
+
+const verifyObj: IVerifyObj = {};
+
+function Required(target: any, propName: string) {
+  let prevPropData = {};
+  if (
+    verifyObj[target.constructor.name] &&
+    verifyObj[target.constructor.name][propName]
+  ) {
+    prevPropData = { ...verifyObj[target.constructor.name][propName] };
+  }
+  verifyObj[target.constructor.name] = {
+    ...verifyObj[target.constructor.name],
+    [propName]: { ...prevPropData, required: true },
+  };
+}
+
+function MaxLength(length: number) {
+  return function (target: any, propName: string) {
+    let prevPropData = {};
+    if (
+      verifyObj[target.constructor.name] &&
+      verifyObj[target.constructor.name][propName]
+    ) {
+      prevPropData = { ...verifyObj[target.constructor.name][propName] };
+    }
+    verifyObj[target.constructor.name] = {
+      ...verifyObj[target.constructor.name],
+      [propName]: { ...prevPropData, maxLength: length },
+    };
+  };
+}
+
+function validate(obj: any): boolean {
+  // console.log(verifyObj);
+  let isValid = true;
+  if (Object.keys(obj).length === 0) {
+    return isValid;
+  }
+
+  Object.keys(verifyObj).forEach((form) => {
+    Object.keys(verifyObj[form]).forEach((propName) => {
+      if (verifyObj[form][propName].required) {
+        if (!obj[propName]) {
+          isValid = false;
+        }
+      }
+      if (verifyObj[form][propName].maxLength) {
+        if (obj[propName] > verifyObj[form][propName].maxLength) {
+          isValid = false;
+        }
+      }
+    });
+  });
+
+  return isValid;
+}
+
+// console.log(verifyObj);
+
+// function PersonRange(target: any, propName: string) {}
+
+// function validate(obj: any) {}
+
+// console.log(registeredValidators);
 
 const formTemplateEl = document.getElementById(
   'project-input'
@@ -7,10 +75,10 @@ const formTemplateEl = document.getElementById(
 const projectListTemplateEl = document.getElementById(
   'project-list'
 ) as HTMLTemplateElement;
-const singleProjectTemplateEl = document.getElementById(
-  'single-project'
-) as HTMLTemplateElement;
-const formEl = formTemplateEl.firstChild as HTMLFormElement;
+// const singleProjectTemplateEl = document.getElementById(
+//   'single-project'
+// ) as HTMLTemplateElement;
+// const formEl = formTemplateEl.firstChild as HTMLFormElement;
 const appEl = document.getElementById('app') as HTMLDivElement;
 
 interface IUserData {
@@ -49,6 +117,16 @@ class CustomForm {
   private descriptionEl: HTMLTextAreaElement;
   private peopleEl: HTMLInputElement;
 
+  @Required
+  private title: string = '';
+
+  @Required
+  private description: string = '';
+
+  @MaxLength(3)
+  @Required
+  private people: number = 0;
+
   constructor() {
     this.customFormEl = document.getElementById(
       'user-input'
@@ -64,23 +142,27 @@ class CustomForm {
   attachListeners() {
     this.customFormEl.addEventListener('submit', this.onSubmit);
   }
-
   @autobind
   onSubmit(event: Event) {
     event.preventDefault();
-    // @Required
-    const title = this.titleEl.value;
-    // @Required
-    const description = this.descriptionEl.value;
-    // // @Required
-    // @PersonRange
-    const people = +this.peopleEl.value;
+    this.title = this.titleEl.value;
+    this.description = this.descriptionEl.value;
+
+    this.people = +this.peopleEl.value;
     const project: IUserData = {
-      title,
-      description,
-      people,
+      title: this.title,
+      description: this.description,
+      people: this.people,
     };
-    pl.add(project);
+
+    validate(project);
+
+    if (validate(project)) {
+      pl.add(project);
+    } else {
+      alert('get the fuck off me');
+    }
+    // pl.add(project);
   }
 }
 
