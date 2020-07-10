@@ -1,40 +1,67 @@
-interface ValidatorConfig {
-  [prop: string]: {
-    [validateableProp: string]: string[];
+interface IVerifyObj {
+  [key: string]: {
+    [propName: string]: { [key: string]: any };
   };
 }
 
-const registeredValidators: ValidatorConfig = {};
+const verifyObj: IVerifyObj = {};
+
+function generateVerificaton(target: any, propName: string, extraData: object) {
+  let prevPropData = {};
+  if (
+    verifyObj[target.constructor.name] &&
+    verifyObj[target.constructor.name][propName]
+  ) {
+    prevPropData = { ...verifyObj[target.constructor.name][propName] };
+  }
+  verifyObj[target.constructor.name] = {
+    ...verifyObj[target.constructor.name],
+    [propName]: { ...prevPropData, ...extraData },
+  };
+}
 
 export function Required(target: any, propName: string) {
-  registeredValidators[target.constructor.name] = {
-    ...registeredValidators[target.constructor.name],
-    [propName]: ['required'],
+  generateVerificaton(target, propName, { required: true });
+}
+
+export function MaxLength(length: number) {
+  return function (target: any, propName: string) {
+    generateVerificaton(target, propName, { maxLength: length });
   };
 }
 
-export function PersonRange(target: any, propName: string) {
-  registeredValidators[target.constructor.name] = {
-    ...registeredValidators[target.constructor.name],
-    [propName]: ['range'],
+export function MinLength(length: number) {
+  return function (target: any, propName: string) {
+    generateVerificaton(target, propName, { minLength: length });
   };
 }
 
-export function validate(obj: any) {
-  const objValidatorConfig = registeredValidators[obj.constructor.name];
-  if (!objValidatorConfig) {
-    return true;
-  }
+export function validate(obj: any): boolean {
   let isValid = true;
-  for (const prop in objValidatorConfig) {
-    for (const validator of objValidatorConfig[prop]) {
-      switch (validator) {
-        case 'required':
-          isValid = isValid && !!obj[prop];
-        case 'range':
-          isValid = isValid && obj[prop] > 0 && obj[prop] <= 10;
-      }
-    }
+  if (Object.keys(obj).length === 0) {
+    return isValid;
   }
+
+  Object.keys(verifyObj).forEach((form) => {
+    Object.keys(verifyObj[form]).forEach((propName) => {
+      const formField = verifyObj[form][propName];
+      if (formField.required) {
+        if (!obj[propName]) {
+          isValid = false;
+        }
+      }
+      if (formField.maxLength) {
+        if (obj[propName] > formField.maxLength) {
+          isValid = false;
+        }
+      }
+      if (formField.minLength) {
+        if (obj[propName] < formField.minLength) {
+          isValid = false;
+        }
+      }
+    });
+  });
+
   return isValid;
 }

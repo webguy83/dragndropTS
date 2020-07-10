@@ -6,7 +6,7 @@ interface IVerifyObj {
 
 const verifyObj: IVerifyObj = {};
 
-function Required(target: any, propName: string) {
+function generateVerificaton(target: any, propName: string, extraData: object) {
   let prevPropData = {};
   if (
     verifyObj[target.constructor.name] &&
@@ -16,28 +16,39 @@ function Required(target: any, propName: string) {
   }
   verifyObj[target.constructor.name] = {
     ...verifyObj[target.constructor.name],
-    [propName]: { ...prevPropData, required: true },
+    [propName]: { ...prevPropData, ...extraData },
   };
 }
 
-function MaxLength(length: number) {
+function Required(target: any, propName: string) {
+  generateVerificaton(target, propName, { required: true });
+}
+
+function MaxNum(num: number) {
   return function (target: any, propName: string) {
-    let prevPropData = {};
-    if (
-      verifyObj[target.constructor.name] &&
-      verifyObj[target.constructor.name][propName]
-    ) {
-      prevPropData = { ...verifyObj[target.constructor.name][propName] };
-    }
-    verifyObj[target.constructor.name] = {
-      ...verifyObj[target.constructor.name],
-      [propName]: { ...prevPropData, maxLength: length },
-    };
+    generateVerificaton(target, propName, { maxNum: num });
+  };
+}
+
+function MinNum(num: number) {
+  return function (target: any, propName: string) {
+    generateVerificaton(target, propName, { minNum: num });
+  };
+}
+
+function MaxTextLength(length: number) {
+  return function (target: any, propName: string) {
+    generateVerificaton(target, propName, { maxTextLength: length });
+  };
+}
+
+function MinTextLength(length: number) {
+  return function (target: any, propName: string) {
+    generateVerificaton(target, propName, { minTextLength: length });
   };
 }
 
 function validate(obj: any): boolean {
-  // console.log(verifyObj);
   let isValid = true;
   if (Object.keys(obj).length === 0) {
     return isValid;
@@ -45,13 +56,29 @@ function validate(obj: any): boolean {
 
   Object.keys(verifyObj).forEach((form) => {
     Object.keys(verifyObj[form]).forEach((propName) => {
-      if (verifyObj[form][propName].required) {
+      const formField = verifyObj[form][propName];
+      if (formField.required) {
         if (!obj[propName]) {
           isValid = false;
         }
       }
-      if (verifyObj[form][propName].maxLength) {
-        if (obj[propName] > verifyObj[form][propName].maxLength) {
+      if (formField.maxNum) {
+        if (obj[propName] > formField.maxNum) {
+          isValid = false;
+        }
+      }
+      if (formField.minNum) {
+        if (obj[propName] < formField.minNum) {
+          isValid = false;
+        }
+      }
+      if (formField.maxTextLength) {
+        if (obj[propName].length > formField.maxTextLength) {
+          isValid = false;
+        }
+      }
+      if (formField.minTextLength) {
+        if (obj[propName].length < formField.minTextLength) {
           isValid = false;
         }
       }
@@ -60,14 +87,6 @@ function validate(obj: any): boolean {
 
   return isValid;
 }
-
-// console.log(verifyObj);
-
-// function PersonRange(target: any, propName: string) {}
-
-// function validate(obj: any) {}
-
-// console.log(registeredValidators);
 
 const formTemplateEl = document.getElementById(
   'project-input'
@@ -117,13 +136,17 @@ class CustomForm {
   private descriptionEl: HTMLTextAreaElement;
   private peopleEl: HTMLInputElement;
 
+  @MinTextLength(2)
+  @MaxTextLength(4)
   @Required
   private title: string = '';
 
+  @MinTextLength(10)
   @Required
   private description: string = '';
 
-  @MaxLength(3)
+  @MinNum(2)
+  @MaxNum(3)
   @Required
   private people: number = 0;
 
@@ -155,20 +178,24 @@ class CustomForm {
       people: this.people,
     };
 
-    validate(project);
-
     if (validate(project)) {
       pl.add(project);
     } else {
       alert('get the fuck off me');
     }
-    // pl.add(project);
   }
 }
 
 @WithTemplate(projectListTemplateEl, appEl)
 class ProjectList {
   private projects: IUserData[] = [];
+  private projectPlacementElm: HTMLUListElement = document.querySelector(
+    '.projects ul'
+  ) as HTMLUListElement;
+
+  constructor(private type: 'active' | 'finished') {
+    this.projectPlacementElm.id = `${this.type}-projects`;
+  }
 
   add(project: IUserData) {
     this.projects.push(project);
@@ -176,12 +203,9 @@ class ProjectList {
   }
 
   refresh(project: IUserData) {
-    const projectPlacementElm = document.querySelector(
-      '.projects ul'
-    ) as HTMLUListElement;
     const li = document.createElement('li');
     li.textContent = project.title;
-    projectPlacementElm.appendChild(li);
+    this.projectPlacementElm.appendChild(li);
   }
 }
 
@@ -196,4 +220,6 @@ class ProjectList {
 // }
 
 const cf = new CustomForm();
-const pl = new ProjectList();
+const pl = new ProjectList('active');
+const finished = new ProjectList('finished');
+console.log(finished);
