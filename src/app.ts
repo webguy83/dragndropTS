@@ -1,3 +1,34 @@
+type Listener = (projects: IProjectData[]) => void;
+
+class State {
+  private projects: IProjectData[] = [];
+  private listeners: Listener[] = [];
+  private static instance: State;
+
+  private constructor() {}
+
+  static getInstance() {
+    if (this.instance) {
+      return this.instance;
+    }
+    this.instance = new State();
+    return this.instance;
+  }
+
+  addProject(project: IProjectData) {
+    this.projects.push(project);
+    for (const listenerFn of this.listeners) {
+      listenerFn(this.projects.slice());
+    }
+  }
+
+  addListener(listenerFn: Listener) {
+    this.listeners.push(listenerFn);
+  }
+}
+
+const state = State.getInstance();
+
 interface IVerifyObj {
   [key: string]: {
     [propName: string]: { [key: string]: any };
@@ -100,16 +131,22 @@ const projectListTemplateEl = document.getElementById(
 // const formEl = formTemplateEl.firstChild as HTMLFormElement;
 const appEl = document.getElementById('app') as HTMLDivElement;
 
-interface IUserData {
+enum ProjectStatus {
+  Active,
+  Finished,
+}
+
+interface IProjectData {
   title: string;
   description: string;
   people: number;
+  status: ProjectStatus;
 }
 
 function WithTemplate(tmp: HTMLTemplateElement, hookId: HTMLElement) {
   return function (_: any) {
-    const el = tmp.content.cloneNode(true);
-    hookId.appendChild(el);
+    const importedNode = document.importNode(tmp.content, true);
+    hookId.appendChild(importedNode);
   };
 }
 
@@ -136,8 +173,6 @@ class CustomForm {
   private descriptionEl: HTMLTextAreaElement;
   private peopleEl: HTMLInputElement;
 
-  @MinTextLength(2)
-  @MaxTextLength(4)
   @Required
   private title: string = '';
 
@@ -172,54 +207,84 @@ class CustomForm {
     this.description = this.descriptionEl.value;
 
     this.people = +this.peopleEl.value;
-    const project: IUserData = {
+    const project: IProjectData = {
       title: this.title,
       description: this.description,
       people: this.people,
+      status: ProjectStatus.Active,
     };
 
     if (validate(project)) {
-      pl.add(project);
+      state.addProject(project);
     } else {
-      alert('get the fuck off me');
+      alert('GET FUCKED');
     }
   }
 }
 
-@WithTemplate(projectListTemplateEl, appEl)
 class ProjectList {
-  private projects: IUserData[] = [];
-  private projectPlacementElm: HTMLUListElement = document.querySelector(
-    '.projects ul'
-  ) as HTMLUListElement;
+  private projects: IProjectData[] = [];
+  private element: HTMLElement;
 
   constructor(private type: 'active' | 'finished') {
-    this.projectPlacementElm.id = `${this.type}-projects`;
+    const importedNode = document.importNode(
+      projectListTemplateEl.content,
+      true
+    );
+    this.element = importedNode.firstElementChild as HTMLElement;
+    this.element.id = `${this.type}-projects`;
+    appEl.insertAdjacentElement('beforeend', this.element);
+    this.renderContent();
   }
 
-  add(project: IUserData) {
-    this.projects.push(project);
-    this.refresh(project);
+  renderContent() {
+    const listId = `${this.type}-projects-list`;
+    this.element.querySelector('ul')!.id = listId;
+    this.element.querySelector('h2')!.textContent =
+      this.type.toUpperCase() + ' PROJECTS';
+
+    state.addListener((projects: IProjectData[]) => {
+      this.projects = projects.filter((project) => {
+        if (this.type === 'active') {
+          return project.status === ProjectStatus.Active;
+        }
+        return project.status === ProjectStatus.Finished;
+      });
+      this.renderProjects();
+    });
   }
 
-  refresh(project: IUserData) {
-    const li = document.createElement('li');
-    li.textContent = project.title;
-    this.projectPlacementElm.appendChild(li);
+  renderProjects() {
+    const listEl = document.getElementById(
+      `${this.type}-projects-list`
+    ) as HTMLUListElement;
+    listEl.innerHTML = '';
+    for (const project of this.projects) {
+      const projectItem = new ProjectItem(project, listEl);
+      projectItem.addItem();
+    }
   }
 }
 
-// const projectPlacementElm = document.querySelector('.projects ul') as HTMLUListElement;
-// @WithTemplate(singleProjectTemplateEl, projectPlacementElm)
-// class SingleProject {
-//   addContent(project: IUserData) {
-//     console.log(projectPlacementElm.children);
-//     projectPlacementElm.children[0].textContent = project.title;
-//     projectPlacementElm.appendChild(projectPlacementElm.children[0]);
-//   }
-// }
+class ProjectItem {
+  tmp: HTMLTemplateElement = document.getElementById(
+    'single-project'
+  ) as HTMLTemplateElement;
+
+  constructor(
+    private project: IProjectData,
+    private hookEl: HTMLUListElement
+  ) {}
+
+  addItem() {
+    const importedNode = document.importNode(this.tmp.content, true);
+    this.hookEl.appendChild(importedNode);
+    if (this.hookEl.lastElementChild) {
+      this.hookEl.lastElementChild.innerHTML = this.project.title;
+    }
+  }
+}
 
 const cf = new CustomForm();
 const pl = new ProjectList('active');
 const finished = new ProjectList('finished');
-console.log(finished);
