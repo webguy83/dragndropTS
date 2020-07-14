@@ -1,3 +1,14 @@
+interface IDraggable {
+  dragStartHandler: (event: DragEvent) => void;
+  dragEndHandler: (event: DragEvent) => void;
+}
+
+interface IDragTarget {
+  dragOverHandler: (event: DragEvent) => void;
+  dropHandler: (event: DragEvent) => void;
+  dragLeaveHandler: (event: DragEvent) => void;
+}
+
 type Listener = (projects: IProjectData[]) => void;
 
 class State {
@@ -17,6 +28,18 @@ class State {
 
   addProject(project: IProjectData) {
     this.projects.push(project);
+    this.updateListeners();
+  }
+
+  moveProject(projId: string, newStatus: ProjectStatus) {
+    const proj = this.projects.find((prj) => prj.id.toString() === projId);
+    if (proj && proj.status !== newStatus) {
+      proj.status = newStatus;
+      this.updateListeners();
+    }
+  }
+
+  private updateListeners() {
     for (const listenerFn of this.listeners) {
       listenerFn(this.projects.slice());
     }
@@ -137,6 +160,7 @@ enum ProjectStatus {
 }
 
 interface IProjectData {
+  id: number;
   title: string;
   description: string;
   people: number;
@@ -180,8 +204,8 @@ class CustomForm {
   @Required
   private description: string = '';
 
-  @MinNum(2)
-  @MaxNum(3)
+  @MinNum(1)
+  @MaxNum(8)
   @Required
   private people: number = 0;
 
@@ -208,6 +232,7 @@ class CustomForm {
 
     this.people = +this.peopleEl.value;
     const project: IProjectData = {
+      id: Math.random(),
       title: this.title,
       description: this.description,
       people: this.people,
@@ -222,7 +247,7 @@ class CustomForm {
   }
 }
 
-class ProjectList {
+class ProjectList implements IDragTarget {
   private projects: IProjectData[] = [];
   private element: HTMLElement;
 
@@ -237,11 +262,39 @@ class ProjectList {
     this.renderContent();
   }
 
+  @autobind
+  dragOverHandler(evt: DragEvent) {
+    if (evt.dataTransfer && evt.dataTransfer.types[0] === 'text/plain') {
+      evt.preventDefault();
+      const listEl = this.element.querySelector('ul') as HTMLUListElement;
+      listEl.classList.add('droppable');
+    }
+  }
+
+  @autobind
+  dropHandler(evt: DragEvent) {
+    const projId = evt.dataTransfer!.getData('text/plain');
+    state.moveProject(
+      projId,
+      this.type === 'active' ? ProjectStatus.Active : ProjectStatus.Finished
+    );
+  }
+
+  @autobind
+  dragLeaveHandler(_: DragEvent) {
+    const listEl = this.element.querySelector('ul') as HTMLUListElement;
+    listEl.classList.remove('droppable');
+  }
+
   renderContent() {
     const listId = `${this.type}-projects-list`;
     this.element.querySelector('ul')!.id = listId;
     this.element.querySelector('h2')!.textContent =
       this.type.toUpperCase() + ' PROJECTS';
+
+    this.element.addEventListener('dragover', this.dragOverHandler);
+    this.element.addEventListener('dragleave', this.dragLeaveHandler);
+    this.element.addEventListener('drop', this.dropHandler);
 
     state.addListener((projects: IProjectData[]) => {
       this.projects = projects.filter((project) => {
@@ -266,23 +319,52 @@ class ProjectList {
   }
 }
 
-class ProjectItem {
+class ProjectItem implements IDraggable {
   tmp: HTMLTemplateElement = document.getElementById(
     'single-project'
   ) as HTMLTemplateElement;
 
-  constructor(
-    private project: IProjectData,
-    private hookEl: HTMLUListElement
-  ) {}
+  constructor(private project: IProjectData, private hookEl: HTMLUListElement) {
+    this.config();
+  }
+
+  get person() {
+    return this.project.people !== 1 ? ' people added.' : ' person added.';
+  }
 
   addItem() {
     const importedNode = document.importNode(this.tmp.content, true);
     this.hookEl.appendChild(importedNode);
+
     if (this.hookEl.lastElementChild) {
-      this.hookEl.lastElementChild.innerHTML = this.project.title;
+      const h2El = this.hookEl.lastElementChild.querySelector(
+        'h2'
+      ) as HTMLHeadingElement;
+      const h3El = this.hookEl.lastElementChild.querySelector(
+        'h3'
+      ) as HTMLHeadingElement;
+      const p = this.hookEl.lastElementChild.querySelector(
+        'p'
+      ) as HTMLParagraphElement;
+
+      this.hookEl.lastElementChild.id = this.project.id.toString();
+      h2El.textContent = this.project.title;
+      h3El.textContent = this.project.people.toString() + this.person;
+      p.textContent = this.project.description;
     }
   }
+
+  config() {
+    this.hookEl.addEventListener('dragstart', this.dragStartHandler);
+  }
+
+  @autobind
+  dragStartHandler(evt: DragEvent) {
+    evt.dataTransfer!.setData('text/plain', this.project.id.toString());
+    evt.dataTransfer!.effectAllowed = 'move';
+  }
+
+  dragEndHandler(_evt: DragEvent) {}
 }
 
 const cf = new CustomForm();
